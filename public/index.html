@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Seu espaço de aprendizagem prática: pense, construa, explique e aplique em um novo contexto.">
+  <title>Ateliê · MCP Tutor</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='12' fill='%235a4bd2'/%3E%3Cpath d='M10 29L20 10l10 19M15 22h10' fill='none' stroke='white' stroke-width='3'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/style.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Pular para a atividade</a>
+  <aside class="sidebar" aria-label="Aulas e conexão">
+    <a href="/" class="brand"><span class="brand-mark">a.</span><span>ateliê<span class="brand-sub">MCP TUTOR</span></span></a>
+    <button class="new-session" id="new-demo"><span aria-hidden="true">＋</span> Nova aula de exemplo</button>
+    <div class="sidebar-label">SEU ESPAÇO</div>
+    <nav id="session-list" aria-label="Suas aulas"><p class="muted sidebar-empty">Suas aulas aparecerão aqui.</p></nav>
+    <div class="sidebar-bottom">
+      <div class="connection"><span class="connection-dot" id="connection-dot"></span><div><strong id="connection-label">Conectando ao painel</strong><span>Dados salvos neste computador</span></div></div>
+      <button class="connect-button" id="open-connect"><span aria-hidden="true">↗</span> Conectar meu tutor</button>
+      <p class="sidebar-footnote">Seu tutor orienta.<br>Você constrói o conhecimento.</p>
+    </div>
+  </aside>
+  <div class="workspace">
+    <header class="topbar"><span>Aprender fazendo <span class="slash">/</span> <strong id="breadcrumb">Seu espaço</strong></span><span class="local-badge"><span></span> LOCAL</span></header>
+    <main id="main" tabindex="-1">
+      <section id="welcome" class="welcome" hidden>
+        <span class="eyebrow">UM ESPAÇO PARA EXPERIMENTAR</span>
+        <h1>Entender é só o começo.<br><span>Agora, faça acontecer.</span></h1>
+        <p>Um lugar para pensar, escrever código e descobrir o que você já consegue fazer. Seu tutor traz a próxima atividade quando você precisa dela.</p>
+        <div class="welcome-project"><div class="project-symbol" aria-hidden="true">&lt;/&gt;</div><div><span class="eyebrow">EXPERIMENTE O FLUXO</span><h2>Sua primeira página</h2><p>HTML · Para quem está começando · Aula guiada sem IA</p></div><button id="start-demo" class="primary">Abrir aula <span aria-hidden="true">↗</span></button></div>
+        <div class="welcome-cycle"><span><b>01</b> Faça uma previsão</span><span><b>02</b> Coloque em prática</span><span><b>03</b> Explique o que fez</span><span><b>04</b> Tente em outro contexto</span></div>
+        <p class="welcome-note">Já tem um tutor no Codex ou Claude Code? Use <button class="text-button" id="welcome-connect">Conectar meu tutor</button> para criar suas próprias aulas.</p>
+      </section>
+      <section id="lesson" hidden>
+        <div class="lesson-heading"><div><span class="eyebrow" id="lesson-mode">SUA AULA</span><h1 id="lesson-title"></h1><p id="lesson-goal"></p></div><div class="lesson-symbol" aria-hidden="true">↗</div></div>
+        <nav class="learning-path" aria-label="Etapas da aprendizagem" id="learning-path"></nav>
+        <div class="feed-label"><span>CONVERSA & PRÁTICA</span><span id="attempt-count"></span></div>
+        <div id="blocks" class="blocks"></div>
+        <div id="empty-lesson" class="empty-lesson" hidden>Seu espaço está pronto. Peça ao tutor para adicionar a primeira atividade.</div>
+        <form class="composer" id="message-form"><label for="message">Uma dúvida ou descoberta?</label><div><textarea id="message" rows="2" maxlength="5000" placeholder="Anote aqui para conversar com seu tutor…" required></textarea><button class="primary" type="submit" aria-label="Enviar mensagem">↑</button></div><p id="composer-note">A mensagem fica disponível para o tutor. Volte à conversa e diga que enviou.</p></form>
+      </section>
+    </main>
+    <footer class="workspace-footer"><span>Aprender leva tentativas. Este é o lugar para elas.</span><span>ateliê / v0.1</span></footer>
+  </div>
+  <dialog id="connect-dialog" aria-labelledby="connect-title"><div class="dialog-heading"><span class="eyebrow">TRAGA SEU TUTOR</span><button class="icon-button" id="close-connect" aria-label="Fechar">×</button></div><h2 id="connect-title">Sua IA. Seu espaço de prática.</h2><p>Na pasta deste projeto, execute o comando para seu cliente. Depois, reinicie a conexão MCP no cliente.</p><label>Codex</label><pre><code>npm run setup:codex</code></pre><label>Claude Code</label><pre><code>npm run setup:claude</code></pre><label>Comece a conversa com</label><blockquote id="starter-prompt">Use o MCP Tutor para me ensinar a criar um site. Comece perguntando o que eu já sei, crie uma sessão e me dê uma atividade por vez. Espere minhas tentativas antes de mostrar soluções.</blockquote><button class="primary" id="copy-prompt">Copiar mensagem inicial</button><p class="muted">O tutor conversa no Codex ou Claude Code. As atividades aparecem aqui. O painel não chama um modelo de IA por conta própria.</p></dialog>
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>
