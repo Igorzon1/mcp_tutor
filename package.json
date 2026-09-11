@@ -1,6 +1,6 @@
 {
   "name": "mcp-tutor",
-  "version": "0.1.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "description": "Um espaço local de aprendizagem prática, conduzido por qualquer tutor MCP.",
@@ -9,7 +9,10 @@
     "start": "node src/server.js",
     "mcp": "node src/mcp.js",
     "test": "node --test test/*.test.js",
-    "check": "node --check src/server.js && node --check src/mcp.js && node --check src/store.js && node --check public/app.js",
+    "check": "node --check src/server.js && node --check src/mcp.js && node --check src/store.js && node --check src/agent.js && node --check src/pedagogy.js && node --check public/app.js && node --check public/code-editor.js && node --check public/message-format.js && node --check public/exercise-worker.js && node --check public/study-layout.js",
+    "quality": "npm run check && npm test",
+    "doctor": "node scripts/doctor.js",
+    "backup": "node scripts/backup.js",
     "setup:codex": "node scripts/connect.js codex",
     "setup:claude": "node scripts/connect.js claude"
   },
