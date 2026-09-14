@@ -1,15 +1,17 @@
 {
   "name": "mcp-tutor",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "Um espaço local de aprendizagem prática, conduzido por qualquer tutor MCP.",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "start": "node src/server.js",
     "mcp": "node src/mcp.js",
     "test": "node --test test/*.test.js",
-    "check": "node --check src/server.js && node --check src/mcp.js && node --check src/store.js && node --check public/app.js",
+    "check": "node scripts/check.js",
     "setup:codex": "node scripts/connect.js codex",
     "setup:claude": "node scripts/connect.js claude"
   },

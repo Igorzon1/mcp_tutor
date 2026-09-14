@@ -1,13 +1,18 @@
+import { mountLab, attachExecution, executionMarkup } from './lab.js';
+import { mountReviews } from './reviews.js';
 const $ = (selector, parent = document) => parent.querySelector(selector);
 const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
-const stages = { predict: 'Prever', practice: 'Praticar', explain: 'Explicar', transfer: 'Aplicar de novo' };
-const types = { code: ['EXERCÍCIO DE CÓDIGO', '&lt;/&gt;'], quiz: ['PARE & PENSE', '◇'], reflection: ['COM SUAS PALAVRAS', '↳'], diagram: ['EXPLORE A IDEIA', '⌘'], chart: ['OBSERVE OS DADOS', '▥'] };
+const stages = { learn: 'Entender', predict: 'Prever', practice: 'Praticar', explain: 'Explicar', transfer: 'Aplicar', review: 'Revisar' };
+const types = { lesson: ['UMA IDEIA PARA ENTENDER', '▤'], code: ['EXERCÍCIO DE CÓDIGO', '&lt;/&gt;'], quiz: ['PARE & PENSE', '◇'], reflection: ['COM SUAS PALAVRAS', '↳'], diagram: ['EXPLORE A IDEIA', '⌘'], chart: ['OBSERVE OS DADOS', '▥'] };
+const filenames = { html: 'index.html', python: 'main.py', java: 'Main.java', javascript: 'main.js', c: 'main.c', cpp: 'main.cpp' };
 let session;
 let eventSource;
 let toastTimer;
 let loadingGeneration = 0;
 let syncing = false;
 let syncAgain = false;
+let currentView = 'home';
+let cancelLab;
 
 function notify(message) {
   const toast = $('#toast');
@@ -16,8 +21,8 @@ function notify(message) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { toast.hidden = true; }, 6000);
 }
-async function api(path, data) {
-  const response = await fetch(path, data === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Tutor-Client': 'browser' }, body: JSON.stringify(data) });
+async function api(path, data, options = {}) {
+  const response = await fetch(path, data === undefined ? options : { ...options, method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Tutor-Client': 'browser' }, body: JSON.stringify(data) });
   const result = await response.json();
   if (!response.ok) throw new Error(result.error || 'Não foi possível concluir a ação.');
   return result;
@@ -29,6 +34,10 @@ function connection(online) {
 function sessionHash() { return new URLSearchParams(location.hash.slice(1)).get('session'); }
 async function refreshList() {
   const { sessions } = await api('/api/sessions');
+  const due = sessions.reduce((sum, item) => sum + (item.summary?.reviewsDue || 0), 0);
+  $('#review-badge').textContent = due;
+  $('#review-badge').hidden = due === 0;
+  $('#home-sessions').innerHTML = sessions.length ? `<h2>Continue de onde parou</h2>${sessions.slice(0, 5).map(item => `<a href="#session=${item.id}" class="home-session"><span><strong>${escape(item.title)}</strong><small>${escape(item.goal)}</small></span><b>${item.summary?.attempted || 0} atividades tentadas ↗</b></a>`).join('')}` : '';
   $('#session-list').replaceChildren();
   if (!sessions.length) $('#session-list').innerHTML = '<p class="muted sidebar-empty">Suas aulas aparecerão aqui.</p>';
   for (const item of sessions) {
@@ -51,13 +60,16 @@ function saveDraft(blockId, form) {
   try { localStorage.setItem(draftKey(blockId), JSON.stringify(Object.fromEntries(data))); } catch { /* Drafts are optional; submitted work remains persisted by the service. */ }
 }
 function renderSession() {
+  if (currentView !== 'lesson') return;
   $('#welcome').hidden = true;
   $('#lesson').hidden = false;
   document.title = `${session.title} · Ateliê`;
   $('#breadcrumb').textContent = session.title;
   $('#lesson-title').textContent = session.title;
   $('#lesson-goal').textContent = session.goal;
-  $('#lesson-mode').textContent = session.mode === 'demo' ? 'AULA DE EXEMPLO · HTML · INICIANTE' : 'AULA CONDUZIDA PELO SEU TUTOR';
+  $('#lesson-mode').textContent = session.mode === 'demo' ? `AULA GUIADA · ${(session.demoLanguage || 'html').toUpperCase()} · ${session.timeBudgetMinutes || 25} MIN SUGERIDOS` : 'AULA CONDUZIDA PELO SEU TUTOR';
+  $('#lesson-objectives').innerHTML = (session.objectives || []).length ? `<span class="field-label">AO PRATICAR, PROCURE CONSEGUIR</span><ul>${session.objectives.map(objective => `<li>${escape(objective)}</li>`).join('')}</ul>` : '';
+  $('#lesson-summary').textContent = `${session.summary?.attempted || 0} de ${session.summary?.activities || 0} atividades tentadas · ${session.summary?.reviewedByTutor || 0} avaliadas pelo tutor`;
   $('#attempt-count').textContent = `${session.attempts.length} tentativa${session.attempts.length === 1 ? '' : 's'} registrada${session.attempts.length === 1 ? '' : 's'}`;
   $('#composer-note').textContent = session.mode === 'demo' ? 'Modo exemplo: suas anotações ficam salvas. Conecte um tutor para conversar com uma IA.' : 'A mensagem fica disponível para o tutor. Volte à conversa e diga que enviou.';
   const currentStage = session.blocks.at(-1)?.stage || 'predict';
@@ -98,6 +110,10 @@ function createBlock(block) {
   element.innerHTML = `<div class="activity-header"><span class="activity-type"><span class="type-icon" aria-hidden="true">${icon}</span>${label}</span><span class="activity-status"></span></div><div class="activity-content"><h3>${escape(block.title)}</h3><p class="prompt">${escape(block.prompt || block.caption)}</p><div class="activity-work"></div><div class="hints" aria-live="polite"></div><div class="feedback" aria-live="polite"></div><div class="history"></div></div>`;
   if (block.type === 'diagram') renderDiagram(block, $('.activity-work', element));
   else if (block.type === 'chart') renderChart(block, $('.activity-work', element));
+  else if (block.type === 'lesson') {
+    $('.prompt', element).textContent = block.body;
+    $('.activity-work', element).innerHTML = `${block.example ? `<div class="worked-example"><div class="field-label">EXEMPLO RESOLVIDO · ${escape(block.example.language.toUpperCase())}</div><pre><code>${escape(block.example.code)}</code></pre><p>${escape(block.example.explanation)}</p></div>` : ''}${block.takeaways?.length ? `<ul class="takeaways">${block.takeaways.map(item => `<li>${escape(item)}</li>`).join('')}</ul>` : ''}`;
+  }
   else createForm(block, $('.activity-work', element));
   return element;
 }
@@ -107,9 +123,14 @@ function createForm(block, container) {
   form.className = 'activity-form';
   let fields = '';
   if (block.type === 'quiz') fields = `<fieldset class="options"><legend class="field-label">Escolha uma opção</legend>${block.options.map((option, index) => `<label class="option"><input type="radio" name="choice" value="${index}" required ${String(draft.choice) === String(index) ? 'checked' : ''}><span>${escape(option)}</span></label>`).join('')}</fieldset>`;
-  if (block.type === 'code') fields = `<details class="requirements"><summary>O que sua página precisa ter</summary><ul>${block.checks.length ? block.checks.map(check => `<li>${escape(check.label)}</li>`).join('') : '<li>O tutor avaliará sua solução.</li>'}</ul></details><div class="editor-shell"><div class="editor-bar"><span class="editor-file"><span aria-hidden="true">◇</span> index.html</span><button type="button" class="run-preview">▷ &nbsp; Visualizar</button></div><div class="editor-body"><pre class="line-numbers" aria-hidden="true"></pre><textarea class="code-editor" name="answer" aria-label="Código HTML da atividade ${escape(block.title)}" spellcheck="false" autocomplete="off" autocapitalize="off" maxlength="50000" required>${escape(draft.answer ?? block.starterCode)}</textarea></div></div><div class="preview" hidden><div class="preview-bar"><span>SUA PÁGINA</span><span>HTML + CSS · sem JavaScript ou rede</span></div><iframe title="Prévia da sua página HTML" sandbox="" referrerpolicy="no-referrer"></iframe></div>`;
+  if (block.type === 'code') {
+    const native = block.language !== 'html';
+    const checks = native ? (block.tests || []).map(test => ({ label: `${test.name}: entrada ${JSON.stringify(test.stdin)}, saída ${JSON.stringify(test.expectedStdout)}` })) : block.checks;
+    fields = `<details class="requirements"><summary>${native ? 'Casos de teste desta atividade' : 'O que sua página precisa ter'}</summary><ul>${checks.length ? checks.map(check => `<li>${escape(check.label)}</li>`).join('') : '<li>O tutor avaliará sua solução.</li>'}</ul></details><div class="editor-shell"><div class="editor-bar"><span class="editor-file"><span aria-hidden="true">◇</span> ${escape(filenames[block.language])}</span><div><button type="button" class="stop-execution" hidden>Parar</button><button type="button" class="run-preview">▷ &nbsp; ${native ? 'Executar' : 'Visualizar'}</button></div></div><div class="editor-body"><pre class="line-numbers" aria-hidden="true"></pre><textarea class="code-editor" name="answer" aria-label="Código ${escape(block.language)} da atividade ${escape(block.title)}" spellcheck="false" autocomplete="off" autocapitalize="off" maxlength="50000" required>${escape(draft.answer ?? block.starterCode)}</textarea></div></div>${native ? `<label class="field-label" for="stdin-${block.id}">Entrada do programa (stdin)</label><textarea class="stdin-input" id="stdin-${block.id}" name="stdin" rows="2" maxlength="8000">${escape(draft.stdin ?? block.stdin ?? '')}</textarea><p class="field-help">Experimente esta entrada. Ao enviar a tentativa, os casos de teste são executados novamente.</p><div class="execution-output" hidden aria-live="polite"></div>` : '<div class="preview" hidden><div class="preview-bar"><span>SUA PÁGINA</span><span>HTML + CSS · sem JavaScript ou rede</span></div><iframe title="Prévia da sua página HTML" sandbox="" referrerpolicy="no-referrer"></iframe></div>'}`;
+  }
   if (block.type === 'reflection') fields = `<label class="field-label" for="answer-${block.id}">Sua explicação</label><textarea class="answer" id="answer-${block.id}" name="answer" rows="4" maxlength="5000" placeholder="Escreva do seu jeito. Seu raciocínio importa." required>${escape(draft.answer || '')}</textarea>`;
-  fields += `<label class="field-label" for="reason-${block.id}">${block.type === 'reflection' ? 'O que te levou a essa conclusão?' : 'Como você chegou a essa resposta?'}</label><textarea class="reasoning" id="reason-${block.id}" name="reasoning" rows="2" maxlength="5000" placeholder="Compartilhe seu raciocínio antes de enviar…" required>${escape(draft.reasoning || '')}</textarea><div class="response-bottom"><label class="confidence">Sua confiança <select name="confidence" aria-label="Sua confiança nesta resposta"><option value="1" ${String(draft.confidence) === '1' ? 'selected' : ''}>Ainda tenho dúvidas</option><option value="2" ${!draft.confidence || String(draft.confidence) === '2' ? 'selected' : ''}>Estou entendendo</option><option value="3" ${String(draft.confidence) === '3' ? 'selected' : ''}>Consigo explicar</option></select></label><div class="actions"><button class="hint-button" type="button">◉ &nbsp; Uma dica</button><button class="primary submit-attempt" type="submit">Enviar tentativa <span aria-hidden="true">↗</span></button></div></div>`;
+  if (block.type !== 'reflection') fields += `<label class="field-label" for="reason-${block.id}">Como você chegou a essa resposta?</label><textarea class="reasoning" id="reason-${block.id}" name="reasoning" rows="2" maxlength="5000" placeholder="Compartilhe seu raciocínio antes de enviar…" required>${escape(draft.reasoning || '')}</textarea>`;
+  fields += `<div class="response-bottom"><label class="confidence">Sua confiança <select name="confidence" aria-label="Sua confiança nesta resposta"><option value="1" ${String(draft.confidence) === '1' ? 'selected' : ''}>Ainda tenho dúvidas</option><option value="2" ${!draft.confidence || String(draft.confidence) === '2' ? 'selected' : ''}>Estou entendendo</option><option value="3" ${String(draft.confidence) === '3' ? 'selected' : ''}>Consigo explicar</option></select></label><div class="actions"><button class="hint-button" type="button">◉ &nbsp; Uma dica</button><button class="primary submit-attempt" type="submit">Enviar tentativa <span aria-hidden="true">↗</span></button></div></div>`;
   form.innerHTML = fields;
   container.append(form);
   form.addEventListener('input', () => saveDraft(block.id, form));
@@ -127,7 +148,8 @@ function createForm(block, container) {
         editor.dispatchEvent(new Event('input', { bubbles: true }));
       }
     });
-    $('.run-preview', form).onclick = () => {
+    if (block.language !== 'html') attachExecution({ runButton: $('.run-preview', form), stopButton: $('.stop-execution', form), output: $('.execution-output', form), getInput: () => ({ language: block.language, code: editor.value, stdin: $('[name="stdin"]', form).value }), api, notify });
+    else $('.run-preview', form).onclick = () => {
       $('.preview', form).hidden = false;
       // This is the only intentional HTML insertion: an opaque-origin sandbox.
       // Scripts, forms, popups, navigation capabilities and network loads are disabled.
@@ -147,15 +169,18 @@ function createForm(block, container) {
     const button = $('.submit-attempt', form);
     button.disabled = true;
     const values = Object.fromEntries(new FormData(form));
-    const payload = { blockId: block.id, reasoning: values.reasoning, confidence: Number(values.confidence) };
+    const payload = { blockId: block.id, reasoning: values.reasoning || values.answer, confidence: Number(values.confidence) };
     if (values.choice !== undefined) payload.choice = Number(values.choice);
     if (values.answer !== undefined) payload.answer = values.answer;
+    if (values.stdin !== undefined) payload.stdin = values.stdin;
+    const originalText = button.innerHTML;
+    button.textContent = block.type === 'code' && block.language !== 'html' ? 'Executando os testes…' : 'Enviando…';
     try {
       await api(`/api/sessions/${sessionId}/attempts`, payload);
       await syncSession();
       notify(session?.mode === 'demo' ? 'Tentativa salva. Veja o retorno abaixo da atividade.' : 'Tentativa salva. Volte ao tutor e diga: “Enviei minha tentativa”.');
     } catch (error) { notify(error.message); }
-    finally { button.disabled = false; }
+    finally { button.disabled = false; button.innerHTML = originalText; }
   };
 }
 function updateBlock(block, element) {
@@ -163,7 +188,7 @@ function updateBlock(block, element) {
   const attempts = session.attempts.filter(attempt => attempt.blockId === block.id);
   const attempt = attempts.at(-1);
   const status = $('.activity-status', element);
-  status.textContent = attempt ? attempt.review ? (attempt.review.passed ? '✓ Avaliada pelo tutor' : '↻ Revise com o tutor') : ({ passed: '✓ Verificação concluída', needs_work: '↻ Mais uma tentativa?', pending_review: 'Aguardando o tutor' })[attempt.result.status] : ['chart', 'diagram'].includes(block.type) ? 'Explore' : 'Sua vez';
+  status.textContent = attempt ? attempt.review ? (attempt.review.passed ? '✓ Avaliada pelo tutor' : '↻ Revise com o tutor') : ({ passed: '✓ Verificação concluída', needs_work: '↻ Mais uma tentativa?', pending_review: 'Aguardando o tutor' })[attempt.result.status] : ['chart', 'diagram', 'lesson'].includes(block.type) ? 'Explore' : 'Sua vez';
   status.classList.toggle('success', !!attempt && (attempt.review ? attempt.review.passed : attempt.result.status === 'passed'));
   const hintButton = $('.hint-button', element);
   if (hintButton) hintButton.hidden = !block.hintsRemaining;
@@ -172,6 +197,7 @@ function updateBlock(block, element) {
   if (!attempt) return;
   feedback.className = `feedback ${attempt.result.status}`;
   feedback.innerHTML = `<span class="feedback-label">VERIFICAÇÃO AUTOMÁTICA · TENTATIVA ${attempts.length}</span><p>${escape(attempt.result.feedback)}</p>${attempt.result.checks ? `<ul class="checklist">${attempt.result.checks.map(check => `<li class="${check.passed ? 'pass' : 'fail'}"><span aria-hidden="true">${check.passed ? '✓' : '○'}</span><span>${escape(check.label)}${check.passed ? '' : ' — ajustar'}</span></li>`).join('')}</ul>` : ''}${attempt.review ? `<div class="review-feedback"><span class="feedback-label">AVALIAÇÃO DO TUTOR · ${attempt.review.passed ? 'OBJETIVO DEMONSTRADO' : 'CONTINUE PRATICANDO'}</span><p>${escape(attempt.review.feedback)}</p></div>` : ''}`;
+  if (attempt.result.executions) feedback.innerHTML += `<details class="execution-details"><summary>Ver entradas, saídas e diagnósticos</summary>${attempt.result.executions.map(execution => `<div class="execution-output">${executionMarkup(execution)}</div>`).join('')}</details>`;
   if (attempts.length > 1) $('.history', element).innerHTML = `<details><summary>Ver ${attempts.length} tentativas</summary><ol>${attempts.map(item => `<li>${escape(new Date(item.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }))} · ${item.hintsUsed} dica(s) usadas · ${escape(({ passed: 'Verificação passou', needs_work: 'Ajustes necessários', pending_review: 'Explicação registrada' })[item.result.status])}<details><summary>Resposta e raciocínio</summary><pre>${escape(item.answer ?? block.options?.[item.choice] ?? '')}</pre><p>${escape(item.reasoning)}</p>${item.review ? `<p>Avaliação do tutor: ${escape(item.review.feedback)}</p>` : ''}</details></li>`).join('')}</ol></details>`;
 }
 function svgElement(tag, attributes = {}) {
@@ -243,6 +269,7 @@ async function openSession(id) {
     $('#message').value = '';
     renderSession();
     await refreshList();
+    if (generation !== loadingGeneration || currentView !== 'lesson') return;
     eventSource = new EventSource(`/api/sessions/${id}/events`);
     eventSource.onopen = () => connection(true);
     eventSource.onerror = () => connection(false);
@@ -252,14 +279,29 @@ async function openSession(id) {
     };
   } catch (error) { notify(error.message); connection(false); if (!session) $('#welcome').hidden = false; }
 }
-async function newDemo(button) {
+async function newDemo(button, language) {
   button.disabled = true;
-  try { const created = await api('/api/demo', {}); location.hash = `session=${created.id}`; }
+  try { const created = await api('/api/demo', { language }); $('#demo-dialog').close(); location.hash = `session=${created.id}`; }
   catch (error) { notify(error.message); }
   finally { button.disabled = false; }
 }
-$('#new-demo').onclick = event => newDemo(event.currentTarget);
-$('#start-demo').onclick = event => newDemo(event.currentTarget);
+async function chooseDemo() {
+  $('#demo-dialog').showModal();
+  $('#demo-options').innerHTML = '<p role="status">Verificando as aulas disponíveis…</p>';
+  try {
+    const { demos } = await api('/api/demos');
+    $('#demo-options').innerHTML = demos.map(demo => `<button class="demo-option" data-language="${escape(demo.language)}" ${demo.available ? '' : 'disabled'}><span class="demo-language">${escape(demo.language.toUpperCase())}</span><strong>${escape(demo.title)}</strong><span>${escape(demo.description)}</span><small>${demo.available ? 'Teoria + prática + revisão ↗' : 'Executor indisponível — confira o Laboratório'}</small></button>`).join('');
+    for (const button of $('#demo-options').querySelectorAll('button')) button.onclick = () => newDemo(button, button.dataset.language);
+  } catch (error) { $('#demo-options').textContent = error.message; }
+}
+$('#new-demo').onclick = $('#start-demo').onclick = chooseDemo;
+$('#close-demo').onclick = () => $('#demo-dialog').close();
+$('#next-activity').onclick = () => {
+  const next = session.blocks.find(block => ['quiz', 'code', 'reflection'].includes(block.type) && (!latestAttempt(block.id) || latestAttempt(block.id).result.status === 'needs_work'));
+  if (next) $(`#block-${next.id}`).scrollIntoView({ behavior: 'smooth', block: 'start' });
+  else if (session.reviews?.length) location.hash = 'view=reviews';
+  else notify('Você já enviou as atividades disponíveis. Retome com o tutor para discutir suas respostas.');
+};
 const dialog = $('#connect-dialog');
 $('#open-connect').onclick = $('#welcome-connect').onclick = () => dialog.showModal();
 $('#close-connect').onclick = () => dialog.close();
@@ -277,11 +319,31 @@ $('#message-form').onsubmit = async event => {
   catch (error) { notify(error.message); }
   finally { button.disabled = false; }
 };
-window.addEventListener('hashchange', () => { const id = sessionHash(); if (id) void openSession(id); });
+async function navigate() {
+  if (location.hash === '#main') return;
+  const params = new URLSearchParams(location.hash.slice(1));
+  const requested = params.get('view');
+  currentView = params.get('session') ? 'lesson' : ['home', 'lab', 'reviews'].includes(requested) ? requested : 'home';
+  ++loadingGeneration;
+  eventSource?.close();
+  cancelLab?.();
+  cancelLab = undefined;
+  for (const id of ['welcome', 'lesson', 'lab', 'reviews']) $(`#${id}`).hidden = id !== (currentView === 'home' ? 'welcome' : currentView);
+  for (const link of document.querySelectorAll('[data-view]')) { const active = link.dataset.view === (currentView === 'lesson' ? 'home' : currentView); link.classList.toggle('active', active); if (active) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current'); }
+  try {
+    if (currentView === 'lesson') await openSession(params.get('session'));
+    else {
+      $('#breadcrumb').textContent = { home: 'Minhas aulas', lab: 'Laboratório', reviews: 'Revisões' }[currentView];
+      document.title = `${$('#breadcrumb').textContent} · Ateliê`;
+      if (currentView === 'lab') cancelLab = await mountLab($('#lab'), api, notify);
+      if (currentView === 'reviews') await mountReviews($('#reviews'), api, notify, refreshList);
+      await refreshList();
+    }
+  } catch (error) { notify(error.message); }
+}
+window.addEventListener('hashchange', () => { void navigate(); });
 try {
-  const list = await refreshList();
+  await refreshList();
   connection(true);
-  if (sessionHash()) await openSession(sessionHash());
-  else if (list.length) location.hash = `session=${list[0].id}`;
-  else $('#welcome').hidden = false;
+  await navigate();
 } catch (error) { connection(false); $('#welcome').hidden = false; notify(`Não foi possível conectar. Execute npm start e recarregue a página. ${error.message}`); }

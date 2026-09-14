@@ -40,7 +40,7 @@ async function ensureService() {
   return starting;
 }
 
-const server = new McpServer({ name: 'mcp-tutor', version: '0.1.0' }, { instructions: TUTOR_INSTRUCTIONS });
+const server = new McpServer({ name: 'mcp-tutor', version: '0.2.0' }, { instructions: TUTOR_INSTRUCTIONS });
 for (const tool of TOOL_DEFINITIONS) {
   server.registerTool(tool.name, {
     description: tool.description,

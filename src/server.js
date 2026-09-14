@@ -2,18 +2,23 @@ import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { ZodError } from 'zod';
+import { z, ZodError } from 'zod';
 import { Store, AppError } from './store.js';
 import { TOOL_DEFINITIONS } from './schema.js';
 import { root, dataDirectory, port, baseUrl } from './paths.js';
 import { demoSession } from './demo.js';
+import { programmingDemo } from './programming-demos.js';
+import { CodeRunner } from './runner.js';
 
-const store = await new Store(dataDirectory).init();
+const runner = new CodeRunner();
+const store = await new Store(dataDirectory, { runner }).init();
 const token = randomBytes(32).toString('hex');
 const hosts = new Set([`127.0.0.1:${port}`, `localhost:${port}`]);
 const origins = new Set([...hosts].map(host => `http://${host}`));
 const assets = new Map([['/', ['index.html', 'text/html; charset=utf-8']], ['/app.js', ['app.js', 'text/javascript; charset=utf-8']], ['/style.css', ['style.css', 'text/css; charset=utf-8']]]);
 const sse = new Set();
+assets.set('/lab.js', ['lab.js', 'text/javascript; charset=utf-8']);
+assets.set('/reviews.js', ['reviews.js', 'text/javascript; charset=utf-8']);
 
 function json(response, status, data) { response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' }); response.end(JSON.stringify(data)); }
 async function body(request) {
@@ -25,10 +30,14 @@ async function body(request) {
     if (size > 160000) throw new AppError('O envio excede 160 KB.', 413);
     chunks.push(chunk);
   }
-  try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { throw new AppError('JSON inválido.'); }
+  try {
+    const value = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error();
+    return value;
+  } catch { throw new AppError('Envie um objeto JSON válido.'); }
 }
 const linkSession = session => ({ ...session, url: `${baseUrl}/#session=${session.id}` });
-async function callTool(name, raw) {
+async function callTool(name, raw, signal) {
   const definition = TOOL_DEFINITIONS.find(tool => tool.name === name);
   if (!definition) throw new AppError('Ferramenta não encontrada.', 404);
   const args = definition.schema.parse(raw);
@@ -39,10 +48,16 @@ async function callTool(name, raw) {
     case 'tutor_add_block': return { block: await store.addBlock(args.sessionId, args.block), url: `${baseUrl}/#session=${args.sessionId}` };
     case 'tutor_get_events': return store.getEvents(args.sessionId, args.after, args.waitSeconds);
     case 'tutor_review_attempt': return store.review(args.sessionId, { attemptId: args.attemptId, passed: args.passed, feedback: args.feedback });
+    case 'tutor_list_runtimes': return runner.capabilities();
+    case 'tutor_run_code': return runner.run(args, { signal });
+    case 'tutor_schedule_review': { const { sessionId, ...input } = args; return store.scheduleReview(sessionId, input); }
+    case 'tutor_get_reviews': return { reviews: store.getReviews(args.sessionId) };
   }
 }
 
 const server = createServer(async (request, response) => {
+  const controller = new AbortController();
+  response.on('close', () => { if (!response.writableEnded) controller.abort(); });
   response.setHeader('X-Content-Type-Options', 'nosniff');
   response.setHeader('Referrer-Policy', 'no-referrer');
   response.setHeader('Cache-Control', 'no-store');
@@ -54,7 +69,7 @@ const server = createServer(async (request, response) => {
     const url = new URL(request.url, baseUrl);
     const bridge = request.headers.authorization === `Bearer ${token}`;
     const cookie = (request.headers.cookie || '').split(';').some(part => part.trim() === `tutor_session=${token}`);
-    if (url.pathname === '/health' && request.method === 'GET') return json(response, 200, { app: 'mcp-tutor', version: '0.1.0' });
+    if (url.pathname === '/health' && request.method === 'GET') return json(response, 200, { app: 'mcp-tutor', version: '0.2.0' });
     if (assets.has(url.pathname) && request.method === 'GET') {
       const [file, type] = assets.get(url.pathname);
       if (url.pathname === '/') response.setHeader('Set-Cookie', `tutor_session=${token}; HttpOnly; SameSite=Strict; Path=/`);
@@ -66,10 +81,27 @@ const server = createServer(async (request, response) => {
     if (url.pathname === '/bridge/tool' && request.method === 'POST') {
       if (!bridge) throw new AppError('Esta rota exige a conexão MCP.', 403);
       const payload = await body(request);
-      return json(response, 200, await callTool(payload.name, payload.args));
+      return json(response, 200, await callTool(payload.name, payload.args, controller.signal));
+    }
+    if (url.pathname === '/api/runtimes' && request.method === 'GET') return json(response, 200, await runner.capabilities());
+    if (url.pathname === '/api/run' && request.method === 'POST') return json(response, 200, await runner.run(await body(request), { signal: controller.signal }));
+    if (url.pathname === '/api/reviews' && request.method === 'GET') return json(response, 200, { reviews: store.getReviews(undefined, true) });
+    if (url.pathname === '/api/demos' && request.method === 'GET') {
+      const { languages } = await runner.capabilities();
+      return json(response, 200, { demos: [{ language: 'html', title: 'Sua primeira página', description: 'Estrutura, significado e aparência.', available: true }, ...['python', 'java'].map(language => ({ language, title: programmingDemo(language).session.title, description: 'Entrada, variáveis e transformação de números.', available: languages.find(item => item.id === language)?.available || false }))] });
     }
     if (url.pathname === '/api/sessions' && request.method === 'GET') return json(response, 200, { sessions: store.list() });
-    if (url.pathname === '/api/demo' && request.method === 'POST') { await body(request); return json(response, 201, store.get((await store.create(demoSession, true)).id, true)); }
+    if (url.pathname === '/api/demo' && request.method === 'POST') {
+      const { language } = z.object({ language: z.enum(['html', 'python', 'java']).default('html') }).strict().parse(await body(request));
+      if (language !== 'html' && !(await runner.capabilities()).languages.find(item => item.id === language)?.available) throw new AppError('O executor dessa linguagem não está disponível. Confira o Laboratório.', 503);
+      const definition = language === 'html' ? demoSession : programmingDemo(language).session;
+      return json(response, 201, store.get((await store.create(definition, true, language)).id, true));
+    }
+    const recallMatch = url.pathname.match(/^\/api\/sessions\/([a-f0-9-]{36})\/reviews\/([a-f0-9-]{36})\/(recall|rate)$/);
+    if (recallMatch && request.method === 'POST') {
+      const [, sessionId, reviewId, action] = recallMatch;
+      return json(response, 200, await store[action === 'recall' ? 'recall' : 'rateRecall'](sessionId, reviewId, await body(request)));
+    }
     const match = url.pathname.match(/^\/api\/sessions\/([a-f0-9-]{36})(?:\/(attempts|hints|messages|events))?$/);
     if (!match) throw new AppError('Rota não encontrada.', 404);
     const [, id, action] = match;
@@ -87,7 +119,7 @@ const server = createServer(async (request, response) => {
     }
     if (request.method === 'POST') {
       const input = await body(request);
-      if (action === 'attempts') return json(response, 201, await store.submit(id, input));
+      if (action === 'attempts') return json(response, 201, await store.submit(id, input, { signal: controller.signal }));
       if (action === 'hints') return json(response, 200, await store.hint(id, input.blockId));
       if (action === 'messages') return json(response, 201, await store.message(id, input.body));
     }
@@ -106,6 +138,7 @@ server.listen(port, '127.0.0.1', async () => {
   console.error(`MCP Tutor pronto: ${baseUrl}`);
 });
 function shutdown() {
+  runner.shutdown();
   for (const response of sse) response.end();
   server.close(async () => { await store.queue; process.exit(0); });
   server.closeIdleConnections();

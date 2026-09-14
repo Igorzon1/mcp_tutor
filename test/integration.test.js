@@ -58,7 +58,7 @@ test('SDK MCP real ↔ serviço local ↔ ações do aluno e feedback do tutor',
   assert.match(page.headers.get('content-security-policy'), /frame-ancestors 'none'/);
 
   await client.connect(transport);
-  assert.equal((await client.listTools()).tools.length, 6);
+  assert.equal((await client.listTools()).tools.length, 10);
   assert.equal((await client.listPrompts()).prompts[0].name, 'active_learning_tutor');
   assert.match((await client.readResource({ uri: 'tutor://guide' })).contents[0].text, /prever/);
   const call = async (name, args) => {
@@ -86,6 +86,27 @@ test('SDK MCP real ↔ serviço local ↔ ações do aluno e feedback do tutor',
   assert.equal(reviewed.attempts[0].review.passed, true);
   await call('tutor_add_block', { sessionId: session.id, block: { type: 'chart', title: 'Tentativas observadas', caption: 'Uma tentativa enviada nesta sessão de teste.', points: [{ label: 'Respostas', value: 1 }] } });
   assert.equal((await call('tutor_list_sessions', {})).sessions.length, 1);
+  const capabilities = await call('tutor_list_runtimes', {});
+  if (capabilities.languages.find(runtime => runtime.id === 'python').available) {
+    const execution = await call('tutor_run_code', { language: 'python', code: 'print(int(input()) * 2)', stdin: '9' });
+    assert.equal(execution.stdout.trim(), '18');
+    const browserExecution = await browserPost('/api/run', { language: 'python', code: 'print("painel")' });
+    assert.equal((await browserExecution.json()).stdout.trim(), 'painel');
+  } else {
+    t.diagnostic(`Execução indisponível: ${capabilities.sandbox.reason}`);
+    assert.equal((await browserPost('/api/run', { language: 'python', code: 'print(1)' })).status, 503);
+    const unavailable = await client.callTool({ name: 'tutor_run_code', arguments: { language: 'python', code: 'print(1)' } });
+    assert.equal(unavailable.isError, true, 'não usa execução sem isolamento como alternativa');
+  }
+  assert.equal((await fetch(`${base}/api/run`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{"language":"python","code":"print(1)"}' })).status, 401);
+  const review = await call('tutor_schedule_review', { sessionId: session.id, concept: 'Significado do h1', prompt: 'Para que serve h1?', referenceAnswer: 'Identifica o título principal.', dueAt: new Date(Date.now() - 1000).toISOString() });
+  assert.equal((await call('tutor_get_reviews', { sessionId: session.id })).reviews[0].referenceAnswer, 'Identifica o título principal.');
+  const publicReviews = await (await browserGet('/api/reviews')).json();
+  assert.equal(publicReviews.reviews[0].referenceAnswer, undefined);
+  const recall = await browserPost(`/api/sessions/${session.id}/reviews/${review.id}/recall`, { answer: 'É o título principal.' });
+  assert.equal((await recall.json()).referenceAnswer, 'Identifica o título principal.');
+  const rating = await browserPost(`/api/sessions/${session.id}/reviews/${review.id}/rate`, { rating: 'partial' });
+  assert.equal((await rating.json()).intervalDays, 1);
   const malformed = await client.callTool({ name: 'tutor_add_block', arguments: { sessionId: session.id, block: { type: 'quiz', title: 'Q', prompt: 'Q', options: ['A', 'B'], correctIndex: 5, explanation: 'E' } } });
   assert.equal(malformed.isError, true);
   const badBody = await fetch(`${base}/api/sessions/${session.id}/attempts`, { method: 'POST', headers: browserHeaders, body: '{' });

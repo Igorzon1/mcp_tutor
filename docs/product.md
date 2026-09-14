@@ -11,13 +11,22 @@ O nome Ateliê é provisório: destaca um espaço em que se aprende construindo 
 ## O percurso principal
 
 1. **Entender o ponto de partida.** Perguntar objetivo, experiência e restrições. Uma pergunta prática curta costuma gerar mais evidência que apenas perguntar o nível.
-2. **Prever.** Pedir uma escolha ou uma previsão antes de mostrar o resultado.
+2. **Ensinar e prever.** Oferecer teoria curta e um exemplo comentado diferente da tarefa. Pedir uma escolha ou previsão antes de mostrar o resultado.
 3. **Praticar.** Apresentar um exercício limitado a uma dificuldade principal. O aluno escreve, observa e envia sua tentativa.
 4. **Revisar.** Ler o resultado e o raciocínio. Identificar um acerto e um próximo passo. Usar dicas graduais quando houver dificuldade.
 5. **Explicar.** Pedir que a pessoa justifique a solução ou compare duas alternativas.
 6. **Transferir.** Propor uma variação que exija recuperar e adaptar o que foi aprendido, começando com menos ajuda.
+7. **Recuperar depois.** Agendar uma pergunta sobre o conceito. Guardar a resposta antes de mostrar uma referência e usar a autoavaliação para decidir o próximo intervalo. Alternar conceitos já vistos quando isso ajudar a distinguir estratégias.
 
-Essas etapas orientam a experiência; não precisam ser um roteiro rígido. Uma resposta pode justificar voltar a uma explicação, reduzir o exercício ou avançar. No MVP, a aula de exemplo usa um roteiro; sessões reais dependem das decisões do tutor conectado.
+Essas etapas orientam a experiência; não precisam ser um roteiro rígido. Uma resposta pode justificar voltar a uma explicação, reduzir o exercício ou avançar. No MVP, as aulas de exemplo usam roteiros; sessões reais dependem do tutor conectado. A [base pedagógica e suas limitações](pedagogy.md) distingue recomendações da literatura de decisões ainda não validadas no produto.
+
+## Implementado na versão 0.2
+
+- Laboratório livre com Python, Java, JavaScript, C e C++, quando instalados; console, entrada, cancelamento e isolamento local.
+- Exercícios nativos com casos de entrada e saída registrados junto da tentativa.
+- Aulas demonstrativas de Python e Java, além de HTML, com exemplo comentado e variação final.
+- Revisões persistidas, recuperação antes da referência e intervalo definido pela autoavaliação.
+- Navegação entre aulas, laboratório e revisões; objetivos, indicação da próxima atividade e indicadores de tentativas. Perguntas abertas usam uma única resposta para evitar explicações duplicadas.
 
 ## A interação que diferencia o produto
 
@@ -54,10 +63,10 @@ Não usar quantidade de cliques, confiança relatada ou número de testes verdes
 | Testar uma aula real com Codex e outra com Claude Code | Identificar onde o ciclo de conversa e prática quebra | Registrar dificuldades, qualidade das dicas e autonomia na tarefa final |
 | Contratos de rubricas e revisões do tutor | Feedback consistente e vinculado à tentativa | Comparar avaliações com critérios explícitos e casos conhecidos |
 | Editor com realce de sintaxe e arquivos | Exercícios de programação mais próximos do trabalho real | Avaliar edição, leitura de erros e preservação de rascunhos |
-| Executor isolado para uma segunda linguagem | Exercícios com comportamento verificável | Definir primeiro limites de tempo, memória, rede e acesso a arquivos; depois testar isolamento |
+| Pacotes e exercícios com vários arquivos | Aprender bibliotecas e projetos reais | Desenhar ambientes explícitos e revisar limites antes de ampliar o acesso |
 | Adaptador MCP Apps | Atividades dentro dos chats compatíveis | Validar negociação de capacidades e manter o painel como alternativa |
 | Exercícios sobre um repositório local | Prática no projeto do aluno | Separar arquivos de exercício, comandos autorizados e evidências de teste |
-| Revisão posterior e recuperação sem ajuda | Observar retenção além da mesma sessão | Uma tarefa nova após um intervalo, sem mostrar o exemplo anterior |
+| Avaliar o sistema de revisões com pessoas | Observar retenção além da mesma sessão | Comparar tarefas novas após intervalos; não usar autoavaliação como medida única |
 
 A expansão para outros assuntos deve acrescentar tipos de atividade sobre o mesmo modelo de sessão, tentativa, evidência e feedback. Exemplos: ordenar etapas, manipular uma simulação, comparar escolhas de design ou resolver uma situação escrita. O editor de código é um dos componentes, não o centro do modelo de dados.
 

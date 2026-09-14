@@ -14,6 +14,7 @@
   <aside class="sidebar" aria-label="Aulas e conexão">
     <a href="/" class="brand"><span class="brand-mark">a.</span><span>ateliê<span class="brand-sub">MCP TUTOR</span></span></a>
     <button class="new-session" id="new-demo"><span aria-hidden="true">＋</span> Nova aula de exemplo</button>
+    <nav class="workspace-nav" aria-label="Áreas de aprendizagem"><a href="#view=home" data-view="home">▤ <span>Minhas aulas</span></a><a href="#view=lab" data-view="lab">&lt;/&gt; <span>Laboratório</span></a><a href="#view=reviews" data-view="reviews">↺ <span>Revisões</span><b id="review-badge" hidden>0</b></a></nav>
     <div class="sidebar-label">SEU ESPAÇO</div>
     <nav id="session-list" aria-label="Suas aulas"><p class="muted sidebar-empty">Suas aulas aparecerão aqui.</p></nav>
     <div class="sidebar-bottom">
@@ -27,24 +28,30 @@
     <main id="main" tabindex="-1">
       <section id="welcome" class="welcome" hidden>
         <span class="eyebrow">UM ESPAÇO PARA EXPERIMENTAR</span>
-        <h1>Entender é só o começo.<br><span>Agora, faça acontecer.</span></h1>
-        <p>Um lugar para pensar, escrever código e descobrir o que você já consegue fazer. Seu tutor traz a próxima atividade quando você precisa dela.</p>
-        <div class="welcome-project"><div class="project-symbol" aria-hidden="true">&lt;/&gt;</div><div><span class="eyebrow">EXPERIMENTE O FLUXO</span><h2>Sua primeira página</h2><p>HTML · Para quem está começando · Aula guiada sem IA</p></div><button id="start-demo" class="primary">Abrir aula <span aria-hidden="true">↗</span></button></div>
-        <div class="welcome-cycle"><span><b>01</b> Faça uma previsão</span><span><b>02</b> Coloque em prática</span><span><b>03</b> Explique o que fez</span><span><b>04</b> Tente em outro contexto</span></div>
+        <h1>O que vamos <span>construir hoje?</span></h1>
+        <p>Comece com uma ideia, coloque-a em prática e volte a ela depois. Escolha uma aula guiada ou explore um programa no laboratório.</p>
+        <div class="home-actions"><button class="primary" id="start-demo">Escolher uma aula <span aria-hidden="true">↗</span></button><a href="#view=lab" class="secondary">Abrir o laboratório</a></div>
+        <div class="home-path"><article><span>01 / ENTENDER</span><h2>Uma ideia por vez</h2><p>Teoria curta e exemplos que mostram o raciocínio.</p></article><article><span>02 / EXPERIMENTAR</span><h2>Aprenda com a tentativa</h2><p>Preveja, execute e compare o que aconteceu.</p></article><article><span>03 / RECUPERAR</span><h2>Lembre depois</h2><p>Explique sem consultar e pratique em outro contexto.</p></article></div>
+        <div id="home-sessions" class="home-sessions"></div>
         <p class="welcome-note">Já tem um tutor no Codex ou Claude Code? Use <button class="text-button" id="welcome-connect">Conectar meu tutor</button> para criar suas próprias aulas.</p>
       </section>
       <section id="lesson" hidden>
         <div class="lesson-heading"><div><span class="eyebrow" id="lesson-mode">SUA AULA</span><h1 id="lesson-title"></h1><p id="lesson-goal"></p></div><div class="lesson-symbol" aria-hidden="true">↗</div></div>
         <nav class="learning-path" aria-label="Etapas da aprendizagem" id="learning-path"></nav>
+        <div id="lesson-objectives" class="lesson-objectives"></div>
+        <div class="lesson-controls"><span id="lesson-summary"></span><button class="secondary" id="next-activity">Ir para a próxima atividade ↓</button></div>
         <div class="feed-label"><span>CONVERSA & PRÁTICA</span><span id="attempt-count"></span></div>
         <div id="blocks" class="blocks"></div>
         <div id="empty-lesson" class="empty-lesson" hidden>Seu espaço está pronto. Peça ao tutor para adicionar a primeira atividade.</div>
         <form class="composer" id="message-form"><label for="message">Uma dúvida ou descoberta?</label><div><textarea id="message" rows="2" maxlength="5000" placeholder="Anote aqui para conversar com seu tutor…" required></textarea><button class="primary" type="submit" aria-label="Enviar mensagem">↑</button></div><p id="composer-note">A mensagem fica disponível para o tutor. Volte à conversa e diga que enviou.</p></form>
       </section>
+      <section id="lab" hidden></section>
+      <section id="reviews" hidden></section>
     </main>
-    <footer class="workspace-footer"><span>Aprender leva tentativas. Este é o lugar para elas.</span><span>ateliê / v0.1</span></footer>
+    <footer class="workspace-footer"><span>Aprender leva tentativas. Este é o lugar para elas.</span><span>ateliê / v0.2</span></footer>
   </div>
   <dialog id="connect-dialog" aria-labelledby="connect-title"><div class="dialog-heading"><span class="eyebrow">TRAGA SEU TUTOR</span><button class="icon-button" id="close-connect" aria-label="Fechar">×</button></div><h2 id="connect-title">Sua IA. Seu espaço de prática.</h2><p>Na pasta deste projeto, execute o comando para seu cliente. Depois, reinicie a conexão MCP no cliente.</p><label>Codex</label><pre><code>npm run setup:codex</code></pre><label>Claude Code</label><pre><code>npm run setup:claude</code></pre><label>Comece a conversa com</label><blockquote id="starter-prompt">Use o MCP Tutor para me ensinar a criar um site. Comece perguntando o que eu já sei, crie uma sessão e me dê uma atividade por vez. Espere minhas tentativas antes de mostrar soluções.</blockquote><button class="primary" id="copy-prompt">Copiar mensagem inicial</button><p class="muted">O tutor conversa no Codex ou Claude Code. As atividades aparecem aqui. O painel não chama um modelo de IA por conta própria.</p></dialog>
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+  <dialog id="demo-dialog" aria-labelledby="demo-title"><div class="dialog-heading"><span class="eyebrow">ESCOLHA UMA EXPERIÊNCIA</span><button id="close-demo" class="icon-button" aria-label="Fechar seleção de aula">×</button></div><h2 id="demo-title">Aprender uma ideia, do começo ao fim</h2><p>Aulas guiadas para experimentar o ciclo. O roteiro é fixo; conecte seu tutor para ter uma aula adaptada a você.</p><div id="demo-options" class="demo-options"></div></dialog>
 </body>
 </html>
