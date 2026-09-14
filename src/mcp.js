@@ -4,7 +4,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { readFile, mkdir, open } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { join } from 'node:path';
-import { TOOL_DEFINITIONS, TUTOR_INSTRUCTIONS } from './schema.js';
+import { APP_VERSION, TOOL_DEFINITIONS, TUTOR_INSTRUCTIONS } from './schema.js';
 import { root, dataDirectory, port, baseUrl } from './paths.js';
 
 async function runtime() {
@@ -40,7 +40,7 @@ async function ensureService() {
   return starting;
 }
 
-const server = new McpServer({ name: 'mcp-tutor', version: '0.2.0' }, { instructions: TUTOR_INSTRUCTIONS });
+const server = new McpServer({ name: 'mcp-tutor', version: APP_VERSION }, { instructions: TUTOR_INSTRUCTIONS });
 for (const tool of TOOL_DEFINITIONS) {
   server.registerTool(tool.name, {
     description: tool.description,

@@ -1,3 +1,4 @@
+export const isLocalCode = block => block.type === 'code' && block.language !== 'html' && (block.language !== 'javascript' || block.runtime === 'local' || block.tests?.some(test => 'expectedStdout' in test));
 const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const labels = { completed: 'Execução concluída', error: 'O programa encontrou um erro', timeout: 'Tempo limite atingido', output_limit: 'Limite de saída atingido', cancelled: 'Execução interrompida', unavailable: 'Executor indisponível' };
 export function executionMarkup(result) {

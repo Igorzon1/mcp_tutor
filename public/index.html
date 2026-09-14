@@ -1,57 +1,64 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Seu espaço de aprendizagem prática: pense, construa, explique e aplique em um novo contexto.">
-  <title>Ateliê · MCP Tutor</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='12' fill='%235a4bd2'/%3E%3Cpath d='M10 29L20 10l10 19M15 22h10' fill='none' stroke='white' stroke-width='3'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="/style.css">
-  <script type="module" src="/app.js"></script>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Converse, experimente e aprenda programação com seu tutor.">
+<title>Ateliê · MCP Tutor</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='12' fill='%235a4bd2'/%3E%3Ctext x='11' y='29' font-size='30' fill='white'%3Ea%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="/style.css"><script type="module" src="/app.js"></script>
 </head>
 <body>
-  <a class="skip-link" href="#main">Pular para a atividade</a>
-  <aside class="sidebar" aria-label="Aulas e conexão">
-    <a href="/" class="brand"><span class="brand-mark">a.</span><span>ateliê<span class="brand-sub">MCP TUTOR</span></span></a>
-    <button class="new-session" id="new-demo"><span aria-hidden="true">＋</span> Nova aula de exemplo</button>
-    <nav class="workspace-nav" aria-label="Áreas de aprendizagem"><a href="#view=home" data-view="home">▤ <span>Minhas aulas</span></a><a href="#view=lab" data-view="lab">&lt;/&gt; <span>Laboratório</span></a><a href="#view=reviews" data-view="reviews">↺ <span>Revisões</span><b id="review-badge" hidden>0</b></a></nav>
-    <div class="sidebar-label">SEU ESPAÇO</div>
-    <nav id="session-list" aria-label="Suas aulas"><p class="muted sidebar-empty">Suas aulas aparecerão aqui.</p></nav>
-    <div class="sidebar-bottom">
-      <div class="connection"><span class="connection-dot" id="connection-dot"></span><div><strong id="connection-label">Conectando ao painel</strong><span>Dados salvos neste computador</span></div></div>
-      <button class="connect-button" id="open-connect"><span aria-hidden="true">↗</span> Conectar meu tutor</button>
-      <p class="sidebar-footnote">Seu tutor orienta.<br>Você constrói o conhecimento.</p>
-    </div>
-  </aside>
-  <div class="workspace">
-    <header class="topbar"><span>Aprender fazendo <span class="slash">/</span> <strong id="breadcrumb">Seu espaço</strong></span><span class="local-badge"><span></span> LOCAL</span></header>
-    <main id="main" tabindex="-1">
-      <section id="welcome" class="welcome" hidden>
-        <span class="eyebrow">UM ESPAÇO PARA EXPERIMENTAR</span>
-        <h1>O que vamos <span>construir hoje?</span></h1>
-        <p>Comece com uma ideia, coloque-a em prática e volte a ela depois. Escolha uma aula guiada ou explore um programa no laboratório.</p>
-        <div class="home-actions"><button class="primary" id="start-demo">Escolher uma aula <span aria-hidden="true">↗</span></button><a href="#view=lab" class="secondary">Abrir o laboratório</a></div>
-        <div class="home-path"><article><span>01 / ENTENDER</span><h2>Uma ideia por vez</h2><p>Teoria curta e exemplos que mostram o raciocínio.</p></article><article><span>02 / EXPERIMENTAR</span><h2>Aprenda com a tentativa</h2><p>Preveja, execute e compare o que aconteceu.</p></article><article><span>03 / RECUPERAR</span><h2>Lembre depois</h2><p>Explique sem consultar e pratique em outro contexto.</p></article></div>
-        <div id="home-sessions" class="home-sessions"></div>
-        <p class="welcome-note">Já tem um tutor no Codex ou Claude Code? Use <button class="text-button" id="welcome-connect">Conectar meu tutor</button> para criar suas próprias aulas.</p>
-      </section>
-      <section id="lesson" hidden>
-        <div class="lesson-heading"><div><span class="eyebrow" id="lesson-mode">SUA AULA</span><h1 id="lesson-title"></h1><p id="lesson-goal"></p></div><div class="lesson-symbol" aria-hidden="true">↗</div></div>
-        <nav class="learning-path" aria-label="Etapas da aprendizagem" id="learning-path"></nav>
-        <div id="lesson-objectives" class="lesson-objectives"></div>
-        <div class="lesson-controls"><span id="lesson-summary"></span><button class="secondary" id="next-activity">Ir para a próxima atividade ↓</button></div>
-        <div class="feed-label"><span>CONVERSA & PRÁTICA</span><span id="attempt-count"></span></div>
-        <div id="blocks" class="blocks"></div>
-        <div id="empty-lesson" class="empty-lesson" hidden>Seu espaço está pronto. Peça ao tutor para adicionar a primeira atividade.</div>
-        <form class="composer" id="message-form"><label for="message">Uma dúvida ou descoberta?</label><div><textarea id="message" rows="2" maxlength="5000" placeholder="Anote aqui para conversar com seu tutor…" required></textarea><button class="primary" type="submit" aria-label="Enviar mensagem">↑</button></div><p id="composer-note">A mensagem fica disponível para o tutor. Volte à conversa e diga que enviou.</p></form>
-      </section>
-      <section id="lab" hidden></section>
-      <section id="reviews" hidden></section>
-    </main>
-    <footer class="workspace-footer"><span>Aprender leva tentativas. Este é o lugar para elas.</span><span>ateliê / v0.2</span></footer>
-  </div>
-  <dialog id="connect-dialog" aria-labelledby="connect-title"><div class="dialog-heading"><span class="eyebrow">TRAGA SEU TUTOR</span><button class="icon-button" id="close-connect" aria-label="Fechar">×</button></div><h2 id="connect-title">Sua IA. Seu espaço de prática.</h2><p>Na pasta deste projeto, execute o comando para seu cliente. Depois, reinicie a conexão MCP no cliente.</p><label>Codex</label><pre><code>npm run setup:codex</code></pre><label>Claude Code</label><pre><code>npm run setup:claude</code></pre><label>Comece a conversa com</label><blockquote id="starter-prompt">Use o MCP Tutor para me ensinar a criar um site. Comece perguntando o que eu já sei, crie uma sessão e me dê uma atividade por vez. Espere minhas tentativas antes de mostrar soluções.</blockquote><button class="primary" id="copy-prompt">Copiar mensagem inicial</button><p class="muted">O tutor conversa no Codex ou Claude Code. As atividades aparecem aqui. O painel não chama um modelo de IA por conta própria.</p></dialog>
-  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
-  <dialog id="demo-dialog" aria-labelledby="demo-title"><div class="dialog-heading"><span class="eyebrow">ESCOLHA UMA EXPERIÊNCIA</span><button id="close-demo" class="icon-button" aria-label="Fechar seleção de aula">×</button></div><h2 id="demo-title">Aprender uma ideia, do começo ao fim</h2><p>Aulas guiadas para experimentar o ciclo. O roteiro é fixo; conecte seu tutor para ter uma aula adaptada a você.</p><div id="demo-options" class="demo-options"></div></dialog>
+<a class="skip-link" href="#message">Pular para a conversa</a>
+<aside class="sidebar" id="sessions-sidebar" aria-label="Aulas e conexão">
+  <a href="/" class="brand"><span class="brand-mark">a.</span><span>ateliê<small>APRENDER FAZENDO</small></span></a>
+  <button class="new-session" id="new-chat"><span aria-hidden="true">＋</span> Nova conversa</button>
+  <div class="sidebar-label">SUAS AULAS</div>
+  <nav id="session-list" aria-label="Suas aulas"><p class="muted">Suas aulas aparecerão aqui.</p></nav>
+  <div class="sidebar-bottom"><div class="connection"><span class="connection-dot" id="connection-dot"></span><div><strong id="connection-label">Conectando ao painel</strong><span>Salvo neste computador</span></div></div><button class="connect-button" id="open-connect">Conexão e ajuda <span aria-hidden="true">↗</span></button><p class="sidebar-footnote">Seu tutor orienta.<br>Você constrói o conhecimento.</p></div>
+</aside>
+<div class="workspace">
+  <header class="topbar"><div class="topbar-title"><button id="toggle-sessions" class="icon-button mobile-only" aria-label="Mostrar aulas" aria-expanded="false" aria-controls="sessions-sidebar">☰</button><span class="topbar-brand">Seu espaço de aprendizagem</span><strong id="breadcrumb">Boas-vindas</strong></div><nav class="workspace-nav" aria-label="Áreas de aprendizagem"><a href="#view=home">Minhas aulas</a><a href="#view=lab">Laboratório</a><a href="#view=reviews">Revisões <span id="review-badge" hidden></span></a></nav><button id="toggle-study" class="study-toggle" aria-controls="study-panel" aria-expanded="true"><span aria-hidden="true">▤</span> Estudo <span id="study-indicator" class="study-indicator" hidden></span></button></header>
+  <main id="main">
+    <section id="welcome" class="welcome" hidden><span class="welcome-mark" aria-hidden="true">a.</span><span class="eyebrow">UM PASSO DE CADA VEZ</span><h1>O que vamos aprender hoje?</h1><p>Converse com seu tutor, experimente uma ideia e descubra o próximo passo. Sua prática acompanha a conversa.</p><button class="primary" id="welcome-new">Começar uma conversa ↗</button><div class="welcome-project"><div><span class="eyebrow">PREFERE EXPERIMENTAR PRIMEIRO?</span><h2>Teoria, prática e revisão</h2><p>Aulas de HTML, Python e Java, sem precisar conectar a IA.</p></div><button id="start-demo" class="secondary">Escolher exemplo</button></div><a class="secondary lab-link" href="#view=lab">Experimentar código no laboratório ↗</a><div id="home-sessions"></div><p class="welcome-note">Já usa um tutor em outro chat? <button class="text-button" id="welcome-connect">Conectar via MCP</button></p></section>
+    <section id="lesson" hidden>
+      <div id="session-loading" class="session-state" role="status" hidden><span class="loading-spinner" aria-hidden="true"></span>Abrindo sua aula…</div>
+      <div id="session-error" class="session-state error-state" role="alert" hidden><div><strong>Não foi possível abrir esta aula.</strong><span id="session-error-message"></span></div><button class="secondary" id="retry-session">Tentar novamente</button></div>
+      <div class="lesson-layout">
+        <section class="conversation-panel" aria-label="Conversa com seu tutor">
+          <div class="conversation-heading" id="lesson-heading"><div><span class="eyebrow" id="lesson-mode">SUA AULA</span><h1 id="lesson-title"></h1><p id="lesson-goal" class="sr-only"></p></div><span class="model-badge">✦ Luna</span></div>
+          <div class="agent-line"><span class="agent-status" id="agent-status" role="status" aria-live="polite">Verificando conexão…</span><span class="session-local">Histórico local</span></div>
+          <div class="conversation-scroll" id="conversation-scroll" tabindex="0" aria-label="Histórico da conversa">
+            <div id="conversation-onboarding" class="conversation-onboarding" aria-labelledby="onboarding-title"><span class="onboarding-icon" aria-hidden="true">✦</span><h2 id="onboarding-title">Comece com uma curiosidade.</h2><p>Conte o que você já sabe ou onde travou. Vamos construir o entendimento juntos, uma tentativa por vez.</p><div class="prompt-suggestions"><button class="prompt-suggestion" data-prompt="Quero aprender JavaScript do zero. Comece descobrindo o que eu já sei.">Quero começar do zero <span>↗</span></button><button class="prompt-suggestion" data-prompt="Quero aprender construindo um projeto pequeno. Ajude-me a escolher o primeiro passo.">Aprender com um projeto <span>↗</span></button><button class="prompt-suggestion" data-prompt="Estou com dificuldade em um conceito de programação. Me ajude com uma pergunta de cada vez.">Destravar uma dúvida <span>↗</span></button></div></div>
+            <div id="blocks" class="blocks" role="log" aria-label="Mensagens" aria-live="polite" aria-relevant="additions"></div><div id="empty-lesson" hidden></div>
+          </div>
+          <button id="latest-message" class="latest-message" hidden>↓ Mensagens recentes</button>
+          <div class="composer-area">
+            <div id="chat-pending" class="chat-pending" role="status" aria-live="polite" hidden><span class="loading-spinner" aria-hidden="true"></span><div><strong id="chat-pending-title">Enviando mensagem…</strong><span id="chat-pending-detail">Preparando a conversa.</span></div><time id="chat-pending-time" aria-hidden="true">0s</time><button id="cancel-chat" class="text-button">Parar</button></div>
+            <div id="chat-error" class="chat-error" role="alert" hidden><strong>Não foi possível concluir a resposta.</strong><span id="chat-error-message"></span><button id="retry-chat" class="text-button">Tentar resposta novamente</button></div>
+            <form class="composer" id="message-form"><label class="sr-only" for="message">Converse com seu tutor</label><textarea id="message" rows="2" maxlength="5000" placeholder="Pergunte, compartilhe uma ideia ou conte onde travou…" required></textarea><div class="composer-bottom"><span id="composer-note">Enter envia · Shift + Enter quebra linha</span><button class="primary send-button" type="submit" aria-label="Enviar mensagem"><span aria-hidden="true">↑</span></button></div></form>
+            <p class="composer-footnote">Aprender leva tentativas. Você pode pedir uma dica a qualquer momento.</p>
+          </div>
+        </section>
+        <div id="study-resizer" class="study-resizer" role="separator" tabindex="0" aria-label="Redimensionar painel de estudo" aria-orientation="vertical" aria-controls="study-panel" aria-valuemin="320" aria-valuemax="900" aria-valuenow="420" title="Arraste para ajustar. Use as setas para ajustar pelo teclado; dê dois cliques para restaurar."><span aria-hidden="true"></span></div>
+        <aside class="lesson-rail" id="study-panel" aria-label="Painel de estudo">
+          <div class="study-heading"><div><span class="eyebrow">AO LADO DA CONVERSA</span><h2>Seu estudo</h2></div><button id="close-study" class="icon-button" aria-label="Fechar painel de estudo">×</button></div>
+          <div class="study-tabs" role="tablist" aria-label="Conteúdo do estudo"><button id="tab-activity" role="tab" aria-controls="pane-activity" aria-selected="true" data-study-tab="activity">Atividade</button><button id="tab-hints" role="tab" aria-controls="pane-hints" aria-selected="false" tabindex="-1" data-study-tab="hints">Dicas</button><button id="tab-notes" role="tab" aria-controls="pane-notes" aria-selected="false" tabindex="-1" data-study-tab="notes">Notas</button><button id="tab-plan" role="tab" aria-controls="pane-plan" aria-selected="false" tabindex="-1" data-study-tab="plan">Plano</button></div>
+          <div class="study-content">
+<section id="pane-activity" role="tabpanel" aria-labelledby="tab-activity"><label class="field-label" for="activity-select">Atividade e materiais</label><select id="activity-select" class="activity-select"></select><div class="challenge-card" aria-labelledby="challenge-title"><div class="rail-card-heading"><span class="rail-eyebrow" id="rail-stage">Prever</span><span class="challenge-badge" id="challenge-badge">Aguardando</span></div><h2 id="challenge-title">Seu próximo pequeno passo</h2><div id="challenge-prompt" class="challenge-prompt message-text">O tutor vai criar a primeira atividade a partir da conversa.</div><div id="challenge-requirements" class="challenge-requirements"></div><div id="activity-panel" class="activity-panel"></div></div><button id="challenge-focus" class="secondary" hidden>Voltar à atividade atual</button><button id="ask-about-activity" class="context-help">Não entendi a atividade <span aria-hidden="true">↗</span></button></section>
+            <section id="pane-hints" role="tabpanel" aria-labelledby="tab-hints" hidden><span class="rail-eyebrow">UMA AJUDA DE CADA VEZ</span><h2>Um empurrãozinho</h2><p class="muted">As dicas ajudam você a encontrar o caminho. Abra só a próxima que precisar.</p><div id="study-hints" class="hints"></div><button id="next-hint" class="secondary" hidden>Revelar próxima dica</button><button id="ask-hint" class="context-help">Conversar sobre minha dúvida <span aria-hidden="true">↗</span></button></section>
+            <section id="pane-notes" role="tabpanel" aria-labelledby="tab-notes" hidden><span class="rail-eyebrow">COM SUAS PALAVRAS</span><h2>Suas descobertas</h2><label class="field-label" for="study-notes">O que vale lembrar desta aula?</label><textarea id="study-notes" rows="14" maxlength="12000" placeholder="Uma ideia que fez sentido, uma dúvida para voltar depois, algo que consegui fazer sozinho…"></textarea><p id="notes-status" class="notes-status" role="status">Notas privadas, salvas neste navegador.</p><p class="muted small">Estas notas não são enviadas ao tutor. Para conversar sobre uma delas, copie-a para o chat.</p></section>
+            <section id="pane-plan" role="tabpanel" aria-labelledby="tab-plan" hidden><div class="rail-progress"><span class="rail-eyebrow">SEU CAMINHO</span><p id="rail-status"></p><p id="lesson-progress" class="sr-only"></p><div class="rail-meter"><i id="rail-meter-fill"></i></div><div class="rail-stages" aria-hidden="true"><span>01</span><span>02</span><span>03</span><span>04</span></div><nav class="learning-path" aria-label="Etapas da aprendizagem" id="learning-path"></nav><span id="attempt-count" class="small muted"></span></div><section id="rail-plan" class="rail-plan"><span id="plan-state" class="plan-state">Em construção</span><h2 id="rail-plan-title"></h2><p id="rail-plan-summary"></p><div id="plan-outcomes" class="plan-outcomes" hidden></div><div id="current-checkpoint" class="current-checkpoint" hidden><span class="checkpoint-label">CHECKPOINT ATUAL</span><strong id="checkpoint-objective"></strong><span class="checkpoint-label">COMO DEMONSTRAR</span><p id="checkpoint-evidence"></p></div></section></section>
+          </div>
+        </aside>
+      </div>
+    </section>
+    <section id="lab" class="standalone-view" hidden></section><section id="reviews" class="standalone-view" hidden></section>
+  </main>
+</div>
+<button id="panel-backdrop" class="panel-backdrop" aria-label="Fechar painel" hidden></button>
+<dialog id="demo-dialog" aria-labelledby="demo-title"><div class="dialog-heading"><span class="eyebrow">ESCOLHA UMA EXPERIÊNCIA</span><button id="close-demo" class="icon-button" aria-label="Fechar seleção de aula">×</button></div><h2 id="demo-title">Aprender uma ideia, do começo ao fim</h2><p>Aulas guiadas para experimentar o ciclo. O roteiro é fixo; conecte seu tutor para ter uma aula adaptada a você.</p><div id="demo-options" class="demo-options"></div></dialog>
+<dialog id="new-session-dialog" aria-labelledby="new-session-heading"><div class="dialog-heading"><span class="eyebrow">NOVA CONVERSA</span><button class="icon-button" id="close-new-session" aria-label="Fechar">×</button></div><h2 id="new-session-heading">O que você quer aprender?</h2><p>O Luna usa seu objetivo para começar. Se precisar, ajuda você a escolher um caminho; depois prepara o plano e ensina com um exemplo, antes da prática.</p><form id="new-session-form"><label for="new-session-name">Nome da aula</label><input id="new-session-name" name="title" maxlength="240" placeholder="Ex.: Minhas primeiras funções" required><label for="new-session-goal">Seu objetivo</label><textarea id="new-session-goal" name="goal" rows="3" maxlength="12000" placeholder="Ex.: Quero entender funções JavaScript." required></textarea><label for="new-session-level">Seu momento</label><select id="new-session-level" name="level"><option value="beginner">Estou começando</option><option value="intermediate">Já pratico um pouco</option><option value="advanced">Quero aprofundar</option></select><button class="primary" type="submit">Começar aula ↗</button></form></dialog>
+<dialog id="connect-dialog" aria-labelledby="connect-title"><div class="dialog-heading"><span class="eyebrow">CONEXÃO E AJUDA</span><button class="icon-button" id="close-connect" aria-label="Fechar">×</button></div><h2 id="connect-title">Seu tutor, aqui no Ateliê.</h2><p>O chat usa o modelo <strong>Luna</strong> pelo Codex instalado neste computador. A conexão com a IA é feita ao enviar uma mensagem.</p><div class="connection-help"><strong>Se não conseguir responder</strong><ol><li>Confira a conexão com a internet.</li><li>Abra o Codex CLI e confira se está autenticado.</li><li>Volte à conversa e tente a resposta novamente.</li></ol></div><details><summary>Usar meu tutor em outro aplicativo via MCP</summary><p>Você também pode conduzir a aula no Codex ou Claude Code e usar este painel para praticar.</p><label>Codex externo</label><pre><code>npm run setup:codex</code></pre><label>Claude Code externo</label><pre><code>npm run setup:claude</code></pre><blockquote id="starter-prompt">Use o MCP Tutor para me ensinar programação. Comece perguntando o que eu já sei, crie uma sessão e me dê uma atividade por vez. Espere minhas tentativas antes de mostrar soluções.</blockquote><button class="secondary" id="copy-prompt">Copiar mensagem inicial</button></details></dialog>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 </body>
 </html>

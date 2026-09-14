@@ -38,19 +38,19 @@ test('intervalos têm limites determinísticos e voltam ao começo quando a pess
 });
 test('aulas da versão anterior são retomadas sem perder blocos ou respostas', async t => {
   const { directory } = await fixture(t);
-  const old = { id: 'old-session', title: 'Aula existente', goal: 'Preservar', mode: 'demo', revision: 0, blocks: [], attempts: [], events: [], advanced: [] };
+  const old = { id: '71f17e6b-df9a-41e1-9c63-c8d55e5b85f1', title: 'Aula existente', goal: 'Preservar', mode: 'demo', revision: 0, blocks: [], attempts: [], events: [], advanced: [] };
   await writeFile(join(directory, 'sessions.json'), JSON.stringify({ version: 1, sessions: [old] }));
   const reloaded = await new Store(directory).init();
-  assert.equal(reloaded.get('old-session').title, 'Aula existente');
-  assert.deepEqual(reloaded.get('old-session').reviews, []);
-  assert.deepEqual(reloaded.get('old-session').attempts, []);
+  assert.equal(reloaded.get('71f17e6b-df9a-41e1-9c63-c8d55e5b85f1').title, 'Aula existente');
+  assert.deepEqual(reloaded.get('71f17e6b-df9a-41e1-9c63-c8d55e5b85f1').reviews, []);
+  assert.deepEqual(reloaded.get('71f17e6b-df9a-41e1-9c63-c8d55e5b85f1').attempts, []);
 });
 test('exercício Python é avaliado com entradas novas, preserva saída e não aceita um print fixo', async t => {
   const { store } = await fixture(t);
   const capabilities = await store.runner.capabilities();
   if (!capabilities.languages.find(runtime => runtime.id === 'python').available) { t.skip(capabilities.sandbox.reason || 'Python indisponível'); return; }
   const session = await store.create({ title: 'Dobro', goal: 'Transformar entradas' });
-  const block = await store.addBlock(session.id, programmingDemo('python').practice);
+  const block = await store.addBlock(session.id, { ...programmingDemo('python').practice, stage: 'predict' });
   const input = { blockId: block.id, reasoning: 'Multiplicar a entrada por dois.', confidence: 2 };
   const hardcoded = await store.submit(session.id, { ...input, answer: 'print(6)' });
   assert.equal(hardcoded.result.status, 'needs_work');
@@ -76,4 +76,36 @@ test('aula Python completa teoria, previsão, prática, explicação, transferê
   assert.equal(completed.blocks.at(-1).stage, 'review');
   assert.equal(completed.reviews.length, 1);
   assert.equal(completed.summary.reviewedByTutor, 0, 'não simula avaliação do tutor');
+});
+
+test('JavaScript com entrada e saída usa Node isolado e rejeita mistura com testes do Worker', async t => {
+  const { store } = await fixture(t);
+  const { blockSchema } = await import('../src/schema.js');
+  const definition = { type: 'code', stage: 'predict', language: 'javascript', runtime: 'local', title: 'Entrada no Node', prompt: 'Leia um número e mostre seu dobro.', tests: [{ name: 'Entrada variável', stdin: '4', expectedStdout: '8' }] };
+  assert.equal(blockSchema.safeParse({ ...definition, runtime: 'browser' }).success, false);
+  assert.equal(blockSchema.safeParse({ ...definition, tests: [...definition.tests, { label: 'Expressão', expression: 'true' }] }).success, false);
+  const capabilities = await store.runner.capabilities();
+  if (!capabilities.languages.find(runtime => runtime.id === 'javascript').available) { t.skip('Node isolado indisponível'); return; }
+  const session = await store.create({ title: 'Node local', goal: 'Ler stdin' });
+  const block = await store.addBlock(session.id, definition);
+  const attempt = await store.submit(session.id, { blockId: block.id, answer: 'const fs = require("node:fs"); console.log(Number(fs.readFileSync(0, "utf8")) * 2);', confidence: 2 });
+  assert.equal(attempt.result.source, 'automatic');
+  assert.equal(attempt.result.status, 'passed');
+  assert.equal(attempt.result.executions[0].stdout.trim(), '8');
+  assert.equal(store.get(session.id).progress.status, 'ready_for_transition');
+});
+
+test('migração preserva conclusão e revisões de uma aula nativa anterior ao controle de etapas', async t => {
+  const { directory } = await fixture(t);
+  const id = '92807c97-cb77-46b1-9a52-45330a1bde47';
+  const blockId = '3f74a73c-0f10-4dd2-8865-4200d21c5aaa';
+  const attemptId = '1997f2e0-f826-4d5d-8c37-672c08228225';
+  const card = { id: '64b36979-54bd-435f-84f3-9e82912d0a09', concept: 'Entrada', prompt: 'Explique input', referenceAnswer: 'Recebe texto', attempts: [], step: 0, dueAt: new Date().toISOString() };
+  const old = { id, title: 'Python concluído', goal: 'Preservar a aula', mode: 'demo', demoLanguage: 'python', revision: 4, blocks: [{ ...programmingDemo('python').transfer, id: blockId, demoStep: 'transfer' }], attempts: [{ id: attemptId, blockId, result: { status: 'passed' } }], events: [], advanced: [blockId], reviews: [card], objectives: ['Ler números'] };
+  await writeFile(join(directory, 'sessions.json'), JSON.stringify({ version: 1, sessions: [old] }));
+  const reloaded = await new Store(directory).init();
+  assert.equal(reloaded.get(id).progress.status, 'completed');
+  assert.equal(reloaded.get(id).progress.lastAttemptId, attemptId);
+  assert.deepEqual(reloaded.get(id).objectives, ['Ler números']);
+  assert.deepEqual(reloaded.get(id).reviews, [card]);
 });

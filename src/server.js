@@ -4,7 +4,8 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { z, ZodError } from 'zod';
 import { Store, AppError } from './store.js';
-import { TOOL_DEFINITIONS } from './schema.js';
+import { APP_VERSION, TOOL_DEFINITIONS, sessionSchema } from './schema.js';
+import { AgentRunner, openingMessage } from './agent.js';
 import { root, dataDirectory, port, baseUrl } from './paths.js';
 import { demoSession } from './demo.js';
 import { programmingDemo } from './programming-demos.js';
@@ -12,13 +13,33 @@ import { CodeRunner } from './runner.js';
 
 const runner = new CodeRunner();
 const store = await new Store(dataDirectory, { runner }).init();
+const agent = new AgentRunner({ root });
 const token = randomBytes(32).toString('hex');
 const hosts = new Set([`127.0.0.1:${port}`, `localhost:${port}`]);
 const origins = new Set([...hosts].map(host => `http://${host}`));
-const assets = new Map([['/', ['index.html', 'text/html; charset=utf-8']], ['/app.js', ['app.js', 'text/javascript; charset=utf-8']], ['/style.css', ['style.css', 'text/css; charset=utf-8']]]);
+const assets = new Map([['/', ['index.html', 'text/html; charset=utf-8']], ['/app.js', ['app.js', 'text/javascript; charset=utf-8']], ['/message-format.js', ['message-format.js', 'text/javascript; charset=utf-8']], ['/style.css', ['style.css', 'text/css; charset=utf-8']]]);
 const sse = new Set();
 assets.set('/lab.js', ['lab.js', 'text/javascript; charset=utf-8']);
 assets.set('/reviews.js', ['reviews.js', 'text/javascript; charset=utf-8']);
+assets.set('/exercise-worker.js', ['exercise-worker.js', 'text/javascript; charset=utf-8']);
+assets.set('/study-layout.js', ['study-layout.js', 'text/javascript; charset=utf-8']);
+assets.set('/code-editor.js', ['code-editor.js', 'text/javascript; charset=utf-8']);
+const panelSessionSchema = sessionSchema.extend({ startTutor: z.boolean().default(false) });
+
+async function answerChat(id, learnerBody, existingMessage) {
+  let learnerMessage = existingMessage;
+  let answer;
+  try {
+    answer = await agent.reply(store.get(id), learnerBody, {
+      beforeRun: async () => { learnerMessage = existingMessage || await store.message(id, learnerBody); },
+    });
+  } catch (error) {
+    if (learnerMessage && error.status !== 499 && error.status !== 409) await store.tutorMessage(id, 'Não consegui alcançar o agente agora. A sua mensagem ficou salva nesta aula; tente novamente ou continue pelo cliente MCP conectado.', 'Conexão do tutor').catch(() => {});
+    throw error;
+  }
+  const tutorMessage = await store.tutorMessage(id, answer);
+  return { learnerMessage, tutorMessage, agent: agent.status(id) };
+}
 
 function json(response, status, data) { response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' }); response.end(JSON.stringify(data)); }
 async function body(request) {
@@ -45,9 +66,14 @@ async function callTool(name, raw, signal) {
     case 'tutor_start_session': return linkSession(await store.create(args));
     case 'tutor_list_sessions': return { sessions: store.list().map(linkSession) };
     case 'tutor_get_session': return linkSession(store.get(args.sessionId));
-    case 'tutor_add_block': return { block: await store.addBlock(args.sessionId, args.block), url: `${baseUrl}/#session=${args.sessionId}` };
+    case 'tutor_set_learning_plan': return store.setLearningPlan(args.sessionId, args);
+    case 'tutor_add_block': {
+      agent.assertCanAddBlock(args.sessionId, args.block);
+      return { block: await store.addBlock(args.sessionId, args.block), url: `${baseUrl}/#session=${args.sessionId}` };
+    }
     case 'tutor_get_events': return store.getEvents(args.sessionId, args.after, args.waitSeconds);
     case 'tutor_review_attempt': return store.review(args.sessionId, { attemptId: args.attemptId, passed: args.passed, feedback: args.feedback });
+    case 'tutor_advance_stage': return store.advanceStage(args.sessionId, args);
     case 'tutor_list_runtimes': return runner.capabilities();
     case 'tutor_run_code': return runner.run(args, { signal });
     case 'tutor_schedule_review': { const { sessionId, ...input } = args; return store.scheduleReview(sessionId, input); }
@@ -61,7 +87,7 @@ const server = createServer(async (request, response) => {
   response.setHeader('X-Content-Type-Options', 'nosniff');
   response.setHeader('Referrer-Policy', 'no-referrer');
   response.setHeader('Cache-Control', 'no-store');
-  response.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-src 'self' about:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'");
+  response.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; worker-src 'self'; frame-src 'self' about:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'");
   try {
     if (!hosts.has(request.headers.host)) throw new AppError('Host não permitido.', 403);
     if (request.headers.origin && !origins.has(request.headers.origin)) throw new AppError('Origem não permitida.', 403);
@@ -69,10 +95,11 @@ const server = createServer(async (request, response) => {
     const url = new URL(request.url, baseUrl);
     const bridge = request.headers.authorization === `Bearer ${token}`;
     const cookie = (request.headers.cookie || '').split(';').some(part => part.trim() === `tutor_session=${token}`);
-    if (url.pathname === '/health' && request.method === 'GET') return json(response, 200, { app: 'mcp-tutor', version: '0.2.0' });
+    if (url.pathname === '/health' && request.method === 'GET') return json(response, 200, { app: 'mcp-tutor', version: APP_VERSION, status: 'ready', agent: agent.status() });
     if (assets.has(url.pathname) && request.method === 'GET') {
       const [file, type] = assets.get(url.pathname);
       if (url.pathname === '/') response.setHeader('Set-Cookie', `tutor_session=${token}; HttpOnly; SameSite=Strict; Path=/`);
+      if (url.pathname === '/exercise-worker.js') response.setHeader('Content-Security-Policy', "default-src 'none'; script-src 'unsafe-eval'; connect-src 'none'; worker-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'");
       response.writeHead(200, { 'Content-Type': type });
       return response.end(await readFile(join(root, 'public', file)));
     }
@@ -91,6 +118,18 @@ const server = createServer(async (request, response) => {
       return json(response, 200, { demos: [{ language: 'html', title: 'Sua primeira página', description: 'Estrutura, significado e aparência.', available: true }, ...['python', 'java'].map(language => ({ language, title: programmingDemo(language).session.title, description: 'Entrada, variáveis e transformação de números.', available: languages.find(item => item.id === language)?.available || false }))] });
     }
     if (url.pathname === '/api/sessions' && request.method === 'GET') return json(response, 200, { sessions: store.list() });
+    if (url.pathname === '/api/agent' && request.method === 'GET') return json(response, 200, agent.status(url.searchParams.get('sessionId')));
+    if (url.pathname === '/api/sessions' && request.method === 'POST') {
+      const { startTutor, ...input } = panelSessionSchema.parse(await body(request));
+      const created = await store.create(input);
+      if (startTutor) {
+        const firstMessage = await store.message(created.id, openingMessage(input));
+        // The operation belongs to the session, not to the lifetime of this HTTP request.
+        // Errors are recorded by AgentRunner and surfaced through the existing retry UI.
+        void answerChat(created.id, firstMessage.body, firstMessage).catch(() => {});
+      }
+      return json(response, 201, { ...store.get(created.id, true), url: `${baseUrl}/#session=${created.id}` });
+    }
     if (url.pathname === '/api/demo' && request.method === 'POST') {
       const { language } = z.object({ language: z.enum(['html', 'python', 'java']).default('html') }).strict().parse(await body(request));
       if (language !== 'html' && !(await runner.capabilities()).languages.find(item => item.id === language)?.available) throw new AppError('O executor dessa linguagem não está disponível. Confira o Laboratório.', 503);
@@ -102,7 +141,7 @@ const server = createServer(async (request, response) => {
       const [, sessionId, reviewId, action] = recallMatch;
       return json(response, 200, await store[action === 'recall' ? 'recall' : 'rateRecall'](sessionId, reviewId, await body(request)));
     }
-    const match = url.pathname.match(/^\/api\/sessions\/([a-f0-9-]{36})(?:\/(attempts|hints|messages|events))?$/);
+    const match = url.pathname.match(/^\/api\/sessions\/([a-f0-9-]{36})(?:\/(attempts|hints|messages|chat(?:\/cancel)?|events))?$/);
     if (!match) throw new AppError('Rota não encontrada.', 404);
     const [, id, action] = match;
     store.session(id);
@@ -117,11 +156,21 @@ const server = createServer(async (request, response) => {
       request.on('close', () => { clearInterval(heartbeat); store.events.off('change', listener); sse.delete(response); });
       return;
     }
+    if (action === 'chat/cancel' && request.method === 'POST') {
+      const result = await agent.cancel(id);
+      return json(response, 200, { cancelled: result.cancelled, agent: agent.status(id) });
+    }
     if (request.method === 'POST') {
       const input = await body(request);
       if (action === 'attempts') return json(response, 201, await store.submit(id, input, { signal: controller.signal }));
       if (action === 'hints') return json(response, 200, await store.hint(id, input.blockId));
       if (action === 'messages') return json(response, 201, await store.message(id, input.body));
+      if (action === 'chat') {
+        const retryMessage = input.retry === true ? store.get(id).blocks.filter(block => block.role === 'learner').at(-1) : null;
+        if (input.retry === true && !retryMessage) throw new AppError('Não há uma mensagem anterior para retomar.');
+        const learnerBody = retryMessage?.body ?? input.body;
+        return json(response, 201, await answerChat(id, learnerBody, retryMessage));
+      }
     }
     throw new AppError('Método não permitido.', 405);
   } catch (error) {
